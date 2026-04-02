@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CodeLoop | المنصة المتكاملة</title>
+    
+    <!-- مكتبات أساسية -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Swiper للسحب -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
+    <!-- Highlight.js لتلوين الأكواد باحترافية -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --app-bg: #030303; --card-bg: #0a0a0a; --primary: #2563eb; }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--app-bg); color: white; overflow-x: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        
+        /* Glass & UI */
+        .glass { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-nav { background: rgba(3, 3, 3, 0.85); backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.08); }
+        
+        /* Layouts */
+        .active-nav-item { color: var(--primary) !important; }
+        .active-tab { background: var(--primary) !important; color: white !important; }
+        .active-side-item { color: white !important; background: rgba(255, 255, 255, 0.1); }
+        
+        /* Swiper & iFrame */
+        .swiper { width: 100%; height: 100%; }
+        .swiper-slide { touch-action: pan-y; }
+        iframe { width: 100%; height: 100%; border: none; background: #fff; pointer-events: none; border-radius: 1.5rem; }
+        .overlay-layer { position: absolute; inset: 0; z-index: 40; cursor: pointer; background: transparent; }
+        
+        /* Animations */
+        .liked-icon { fill: #ef4444; color: #ef4444 !important; animation: heart-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .saved-icon { fill: #eab308; color: #eab308 !important; animation: heart-pop 0.4s ease; }
+        @keyframes heart-pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+        
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: none; animation: slideDown 0.3s ease-out; }
+        @keyframes slideDown { from { top: -50px; opacity: 0; } to { top: 20px; opacity: 1; } }
+
+        .floating-heart { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 5rem; color: rgba(239, 68, 68, 0.8); z-index: 50; opacity: 0; pointer-events: none; }
+        .animate-float { animation: float-up 0.8s ease-out forwards; }
+        @keyframes float-up { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 80% { transform: translate(-50%, -80%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -100%) scale(0.8); opacity: 0; } }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        pre code.hljs { background: transparent !important; padding: 0 !important; }
+
+        /* Notification Badge */
+        .badge { position: absolute; background: red; color: white; border-radius: 50%; padding: 2px 5px; font-size: 8px; font-weight: bold; }
+        
+        /* Login Overlay */
+        .login-overlay { position: fixed; inset: 0; background: rgba(3, 3, 3, 0.95); backdrop-filter: blur(20px); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body class="pb-24 sm:pb-0">
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay hidden">
+        <div class="bg-card-bg border border-white/10 p-8 rounded-[2.5rem] w-full max-w-sm text-center shadow-2xl mx-4">
+            <div class="w-16 h-16 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-6">
+                <i data-lucide="infinity" class="text-white w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-black text-white mb-2">مرحباً بك في CodeLoop</h2>
+            <p class="text-xs text-gray-400 mb-8 font-medium">سجل دخولك لحفظ مشاريعك ومتابعة أصدقائك</p>
+            
+            <button onclick="window.loginWithGoogle()" class="w-full flex items-center justify-center gap-3 bg-white text-black font-black py-3.5 rounded-2xl hover:bg-gray-200 transition-all active:scale-95 mb-3">
+                <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                المتابعة باستخدام جوجل
+            </button>
+            <button onclick="window.continueAsGuest()" class="w-full flex items-center justify-center gap-3 bg-white/5 text-gray-300 font-bold py-3.5 rounded-2xl hover:bg-white/10 transition-all active:scale-95">
+                الدخول كزائر
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast glass px-6 py-3 rounded-full border border-blue-500/30 flex items-center gap-3 shadow-2xl shadow-blue-500/20">
+        <i data-lucide="check-circle" class="w-5 h-5 text-blue-500"></i>
+        <span id="toast-msg" class="text-xs font-black text-white">إشعار</span>
+    </div>
+
+    <!-- Sidebar (Desktop) -->
+    <aside class="hidden sm:flex flex-col w-64 fixed top-0 right-0 h-screen glass border-l border-white/5 z-50 p-6 bg-[#030303]/95">
+        <div class="flex items-center gap-3 mb-10 cursor-pointer" onclick="switchView('home')">
+            <div class="w-10 h-10 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
+                <i data-lucide="infinity" class="text-white w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-black italic tracking-tighter leading-none">CODELOOP</h1>
+            </div>
+        </div>
+
+        <nav class="flex-1 flex flex-col gap-2">
+            <button onclick="switchView('home')" id="side-home" class="flex items-center gap-4 text-gray-500 hover:text-white p-3 rounded-xl transition-all active-side-item">
+                <i data-lucide="house" class="w-5 h-5"></i>
+                <span class="font-bold text-sm">الرئيسية</span>
+            </button>
+            <button onclick="switchView('saved')" id="side-saved" class="flex items-center gap-4 text-gray-500 hover:text-white p-3 rounded-xl transition-all">
+                <i data-lucide="bookmark" class="w-5 h-5"></i>
+                <span class="font-bold text-sm">مكتبتي</span>
+            </button>
+            <button onclick="switchView('inbox')" id="side-inbox" class="flex items-center gap-4 text-gray-500 hover:text-white p-3 rounded-xl transition-all">
+                <i data-lucide="message-square" class="w-5 h-5"></i>
+                <span class="font-bold text-sm">الرسائل</span>
+            </button>
+            <button onclick="switchView('notifications')" id="side-notifications" class="flex items-center gap-4 text-gray-500 hover:text-white p-3 rounded-xl transition-all relative">
+                <i data-lucide="bell" class="w-5 h-5"></i>
+                <span class="font-bold text-sm">الإشعارات</span>
+                <span id="side-notif-badge" class="badge hidden top-3 left-3">0</span>
+            </button>
+            <button onclick="switchView('profile')" id="side-profile" class="flex items-center gap-4 text-gray-500 hover:text-white p-3 rounded-xl transition-all">
+                <i data-lucide="user" class="w-5 h-5"></i>
+                <span class="font-bold text-sm">حسابي</span>
+            </button>
+        </nav>
+
+        <button onclick="window.openPostModal()" class="w-full flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-black transition-all shadow-xl shadow-blue-600/20 text-white">
+            <i data-lucide="plus" class="w-5 h-5"></i> مشروع جديد
+        </button>
+    </aside>
+
+    <!-- Main Container Wrapper -->
+    <div class="sm:pr-64 w-full">
+        <!-- Top Header -->
+        <header class="fixed top-0 left-0 w-full sm:w-[calc(100%-16rem)] z-40 glass border-b border-white/5 px-4 py-3 flex justify-between items-center bg-[#030303]/90">
+            <!-- Logo (Mobile only) -->
+            <div class="flex items-center gap-3 cursor-pointer sm:hidden" onclick="switchView('home')">
+                <div class="w-10 h-10 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <i data-lucide="infinity" class="text-white w-6 h-6"></i>
+                </div>
+            </div>
+            
+            <!-- Search Bar (Desktop & Mobile) -->
+            <div class="flex-1 max-w-xl relative mx-2">
+                <i data-lucide="search" class="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"></i>
+                <input type="text" id="search-input" onkeyup="handleSearch()" placeholder="ابحث في كود لوب..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pr-10 pl-4 text-xs outline-none focus:border-blue-500 transition-all text-white">
+            </div>
+
+            <div class="flex items-center gap-4 sm:hidden">
+                <button onclick="switchView('notifications')" class="relative text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="bell" class="w-6 h-6"></i>
+                    <span id="notif-badge" class="badge hidden -top-1 -right-1">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Layout -->
+        <div class="max-w-2xl mx-auto pt-[90px] px-4 min-h-screen">
+            
+            <!-- Filter Tags -->
+            <div class="mb-8 overflow-x-auto whitespace-nowrap pb-2 custom-scrollbar flex gap-2" id="filter-container"></div>
+
+            <div id="loading" class="text-center py-32 flex flex-col items-center gap-4">
+                <div class="w-12 h-12 border-4 border-white/10 border-t-blue-600 rounded-full animate-spin"></div>
+                <span class="text-xs font-bold text-gray-500 tracking-widest uppercase">Fetching Network...</span>
+            </div>
+            
+            <!-- Views -->
+            <div id="feed" class="space-y-10 pb-10"></div>
+            
+            <!-- Notifications View -->
+            <div id="notifications-view" class="hidden pb-10">
+                <div class="flex items-center gap-4 mb-6 sticky top-0 bg-[#030303] py-2 z-10">
+                    <h2 class="font-black text-lg">الإشعارات</h2>
+                </div>
+                <div id="notifications-list" class="space-y-4"></div>
+            </div>
+
+            <!-- Inbox View (Chats List) -->
+            <div id="inbox-view" class="hidden pb-10">
+                <div class="flex items-center gap-4 mb-6 sticky top-0 bg-[#030303] py-2 z-10">
+                    <h2 class="font-black text-lg">الرسائل الخاصة</h2>
+                </div>
+                <div id="inbox-list" class="space-y-3"></div>
+            </div>
+
+            <!-- Private Chat View -->
+            <div id="private-chat-view" class="hidden pb-10 flex-col h-[80vh]">
+                <div class="flex items-center gap-4 mb-4 bg-white/5 p-4 rounded-2xl sticky top-0 z-10 backdrop-blur-md">
+                    <button onclick="switchView('inbox')" class="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><i data-lucide="arrow-right" class="w-5 h-5"></i></button>
+                    <div class="flex items-center gap-3 cursor-pointer" onclick="window.openUserProfile(currentChatMode)">
+                        <div id="private-chat-avatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-black text-white">?</div>
+                        <div>
+                            <h3 id="private-chat-title" class="font-black text-sm">محادثة</h3>
+                            <span class="text-[9px] text-gray-400">انقر لعرض البروفايل</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="chat-messages" class="flex-1 overflow-y-auto custom-scrollbar space-y-4 p-4 bg-black/30 rounded-2xl border border-white/5 mb-4"></div>
+                <div class="flex gap-2 items-center">
+                    <button id="btn-record-audio" onclick="window.toggleRecordAudio()" class="p-3 bg-white/5 rounded-full text-gray-400 hover:text-white transition-colors relative flex-shrink-0">
+                        <i data-lucide="mic" id="mic-icon" class="w-5 h-5"></i>
+                        <span id="record-pulse" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full animate-ping hidden"></span>
+                    </button>
+                    <input type="text" id="chat-input" placeholder="اكتب رسالة..." class="flex-1 bg-white/5 rounded-full px-5 py-3 text-sm outline-none border border-transparent focus:border-white/10 font-bold transition-all">
+                    <button onclick="window.sendMessage()" class="p-3 px-5 bg-blue-600 rounded-full text-white hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20"><i data-lucide="send" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+
+            <!-- Other User Profile View -->
+            <div id="user-profile-view" class="hidden pb-20">
+                <div class="flex items-center gap-4 mb-6 sticky top-0 bg-[#030303] py-2 z-10">
+                    <button onclick="switchView('home')" class="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><i data-lucide="arrow-right" class="w-5 h-5"></i></button>
+                    <h2 class="font-black text-lg">الملف الشخصي</h2>
+                </div>
+                
+                <div class="bg-card-bg border border-white/5 rounded-[2rem] p-6 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-blue-900/40 to-purple-900/40 opacity-50"></div>
+                    <div id="other-profile-avatar" class="w-20 h-20 bg-gray-800 rounded-full mx-auto mb-3 flex items-center justify-center text-3xl font-black text-white relative z-10 border-4 border-[#0a0a0a] shadow-xl">?</div>
+                    <h2 id="other-profile-name" class="text-xl font-black relative z-10 mb-1">اسم المطور</h2>
+                    
+                    <div class="flex justify-center gap-6 mt-4 relative z-10">
+                        <div><span id="other-stat-posts" class="block font-black text-xl">0</span><span class="text-[10px] text-gray-500">مشروع</span></div>
+                        <div><span id="other-stat-followers" class="block font-black text-xl">0</span><span class="text-[10px] text-gray-500">متابع</span></div>
+                        <div><span id="other-stat-following" class="block font-black text-xl">0</span><span class="text-[10px] text-gray-500">يتابع</span></div>
+                    </div>
+
+                    <div class="flex gap-2 mt-6 relative z-10 justify-center">
+                        <button id="btn-other-follow" class="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm flex-1 max-w-[120px] transition-colors">متابعة</button>
+                        <button id="btn-other-msg" class="flex items-center justify-center gap-2 px-4 py-2 bg-white/10 text-white font-bold rounded-xl text-sm flex-1 max-w-[120px] transition-colors hover:bg-white/20"><i data-lucide="message-square" class="w-4 h-4"></i> شات</button>
+                        <button id="btn-other-donate" class="px-4 py-2 bg-green-500/10 text-green-500 border border-green-500/20 font-bold rounded-xl text-sm transition-colors hover:bg-green-500/20" title="دعم بـ 10 عملات"><i data-lucide="coins" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="font-black text-sm text-gray-400 mb-4 px-2">مشاريع المطور</h3>
+                    <div id="other-profile-posts" class="space-y-6"></div>
+                </div>
+            </div>
+
+            <!-- My Profile View -->
+            <div id="profile-view" class="hidden pb-20">
+                <div class="bg-card-bg border border-white/5 rounded-[2rem] p-8 text-center relative overflow-hidden mt-4">
+                    <div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-blue-900/40 to-purple-900/40 opacity-50"></div>
+                    <div id="profile-big-avatar" class="w-24 h-24 bg-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl font-black text-white relative z-10 border-4 border-[#0a0a0a] shadow-2xl">?</div>
+                    <h2 id="profile-name-display" class="text-2xl font-black relative z-10">اسم المطور</h2>
+                    <p class="text-xs text-blue-500 font-bold uppercase tracking-widest mt-1 relative z-10">Verified Developer</p>
+                    
+                    <div class="mt-4 inline-block bg-green-500/10 border border-green-500/20 px-6 py-2 rounded-full relative z-10">
+                        <span class="text-xs text-green-400 font-bold">رصيد المحفظة: </span>
+                        <span id="wallet-balance" class="text-lg font-black text-green-500">0</span>
+                        <span class="text-xs text-green-400"> عملة</span>
+                    </div>
+
+                    <div class="mt-8 bg-black/50 rounded-2xl p-6 border border-white/5 relative z-10">
+                        <label class="text-[10px] font-bold text-gray-500 block mb-2 px-1 text-right">تعديل اسم العرض</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="settings-username" class="flex-1 bg-white/5 rounded-xl p-3 outline-none border border-white/10 focus:border-blue-500 text-sm font-bold">
+                            <button onclick="saveSettings()" class="px-6 bg-blue-600 text-white font-bold rounded-xl active:scale-95 transition-all">حفظ</button>
+                        </div>
+                    </div>
+
+                    <!-- Logout Button -->
+                    <button onclick="window.logoutUser()" class="mt-4 flex items-center justify-center gap-2 w-full py-3 bg-red-500/10 text-red-500 font-bold rounded-2xl border border-red-500/20 hover:bg-red-500/20 transition-colors relative z-10">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> تسجيل الخروج
+                    </button>
+                    
+                    <div class="grid grid-cols-3 gap-3 mt-4 relative z-10">
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+                            <p class="text-[10px] text-gray-500 font-bold uppercase mb-1">المشاريع</p>
+                            <p id="stat-posts" class="text-xl font-black text-white">0</p>
+                        </div>
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+                            <p class="text-[10px] text-gray-500 font-bold uppercase mb-1">المحفوظات</p>
+                            <p id="stat-saved" class="text-xl font-black text-white">0</p>
+                        </div>
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+                            <p class="text-[10px] text-gray-500 font-bold uppercase mb-1">المتابعين</p>
+                            <p id="stat-followers" class="text-xl font-black text-white">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation (Mobile Only) -->
+    <nav class="glass-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center py-3 pb-safe sm:hidden">
+        <button onclick="switchView('home')" id="nav-home" class="flex flex-col items-center gap-1 text-gray-500 active-nav-item transition-colors">
+            <i data-lucide="house" class="w-6 h-6"></i>
+            <span class="text-[9px] font-bold">الرئيسية</span>
+        </button>
+        <button onclick="switchView('saved')" id="nav-saved" class="flex flex-col items-center gap-1 text-gray-500 transition-colors">
+            <i data-lucide="bookmark" class="w-6 h-6"></i>
+            <span class="text-[9px] font-bold">مكتبتي</span>
+        </button>
+        <button onclick="window.openPostModal()" class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center -mt-8 shadow-lg shadow-blue-600/40 border-[4px] border-[#030303] text-white">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </button>
+        <button onclick="switchView('inbox')" id="nav-inbox" class="flex flex-col items-center gap-1 text-gray-500 transition-colors">
+            <i data-lucide="message-square" class="w-6 h-6"></i>
+            <span class="text-[9px] font-bold">الرسائل</span>
+        </button>
+        <button onclick="switchView('profile')" id="nav-profile" class="flex flex-col items-center gap-1 text-gray-500 transition-colors">
+            <i data-lucide="user" class="w-6 h-6"></i>
+            <span class="text-[9px] font-bold">حسابي</span>
+        </button>
+    </nav>
+
+    <!-- Post Creation Modal -->
+    <div id="post-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
+        <div class="bg-[#0c0c0c] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-6 sm:p-8 my-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modal-title" class="text-xl font-black text-white flex items-center gap-2">
+                    <i data-lucide="terminal-square" class="text-blue-500"></i> نشر مشروع جديد
+                </h2>
+                <button onclick="window.toggleModal(false)" class="p-2 bg-white/5 rounded-full hover:bg-white/10"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <form id="post-form" class="space-y-4">
+                <input type="text" id="post-title" placeholder="عنوان الكود (مثال: زر نيون متحرك)" required class="w-full bg-black rounded-2xl p-4 outline-none border border-white/10 focus:border-blue-500 text-sm font-bold">
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <select id="post-lang" class="w-full bg-black rounded-2xl p-4 outline-none border border-white/10 text-white text-sm appearance-none font-bold">
+                        <option value="HTML">HTML / CSS</option>
+                        <option value="JavaScript">JavaScript</option>
+                        <option value="Python">Python</option>
+                        <option value="React">React JSX</option>
+                        <option value="C++">C++</option>
+                    </select>
+                    <select id="post-type" class="w-full bg-black rounded-2xl p-4 outline-none border border-white/10 text-white text-sm appearance-none font-bold">
+                        <option value="UI Component">UI Component</option>
+                        <option value="Logic Script">Logic Script</option>
+                        <option value="Full Page">Full Webpage</option>
+                    </select>
+                </div>
+
+                <textarea id="post-desc" placeholder="اشرح فكرة الكود وما هي التقنيات المستخدمة..." required class="w-full bg-black rounded-2xl p-4 h-24 outline-none border border-white/10 text-sm resize-none custom-scrollbar"></textarea>
+                
+                <div class="relative">
+                    <div class="absolute top-3 left-4 text-[9px] font-black text-gray-500 uppercase z-10 pointer-events-none">محرر الكود</div>
+                    <button type="button" onclick="window.pasteFromClipboard()" class="absolute top-2 right-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg p-1.5 px-3 transition-colors z-10 flex items-center gap-1 text-[10px] font-bold border border-blue-500/30">
+                        <i data-lucide="clipboard-paste" class="w-3 h-3"></i> لصق
+                    </button>
+                    <textarea id="post-code" placeholder="<!-- الصق الكود هنا -->" required class="w-full bg-[#050505] border border-white/10 rounded-2xl p-4 pt-10 h-48 font-mono text-blue-400 text-xs outline-none focus:border-blue-500 custom-scrollbar relative"></textarea>
+                </div>
+
+                <button type="submit" id="btn-submit-post" class="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg shadow-blue-600/30 active:scale-95 transition-all text-lg">نشر الآن</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-[200] hidden items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+        <div class="bg-[#0c0c0c] border border-white/10 w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl">
+            <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-4"></i>
+            <h3 class="text-lg font-black text-white mb-2">حذف المشروع؟</h3>
+            <p class="text-xs text-gray-400 mb-6">لا يمكن التراجع عن هذا الإجراء وسيتم حذفه من المنصة.</p>
+            <div class="flex gap-3">
+                <button id="btn-confirm-delete" class="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl transition active:scale-95 shadow-lg shadow-red-600/20">حذف نهائي</button>
+                <button onclick="document.getElementById('confirm-modal').style.display='none'" class="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl transition hover:bg-white/20">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase + Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, push, set, update, runTransaction, serverTimestamp, get, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGnyVjU_sfU3KfVHW-wyBzE5ufJHFXL8s",
+            authDomain: "es-store-409a3.firebaseapp.com",
+            databaseURL: "https://es-store-409a3-default-rtdb.firebaseio.com",
+            projectId: "es-store-409a3",
+            storageBucket: "es-store-409a3.firebasestorage.app",
+            messagingSenderId: "175100432019",
+            appId: "1:175100432019:web:42754dcbeca82c638c4766"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const rdb = getDatabase(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        const DB_ROOT = "codeloop_pro_v3";
+
+        // Global State
+        let postsData = [];
+        let usersData = {};
+        let notifications = [];
+        let allChatsData = {};
+        let currentFilter = 'All';
+        let currentSearch = '';
+        let currentView = 'home';
+        let swipers = {};
+        let currentChatMode = null; 
+        let editingPostId = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        const filters = ['All', 'HTML', 'JavaScript', 'Python', 'React'];
+
+        // Lazy Loading Observer للتحسين الأداء ومنع التعليق
+        const lazyObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const iframe = entry.target;
+                    // تفعيل الكود فقط إذا ظهر الإطار في الشاشة
+                    if (!iframe.srcdoc && iframe.dataset.code) {
+                        iframe.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;overflow:hidden;background-color:transparent;}*{max-width:100%;}</style></head><body>${iframe.dataset.code}</body></html>`;
+                    }
+                }
+            });
+        }, { rootMargin: '100px' });
+
+        async function init() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // مسجل دخول بجوجل
+                    localStorage.setItem('cl_user_id', user.uid);
+                    localStorage.setItem('cl_username', user.displayName || 'مطور');
+                    document.getElementById('login-overlay').style.display = 'none';
+                    await initUserData(user.uid, user.displayName, user.email);
+                    startApp();
+                } else {
+                    // زائر أو غير مسجل
+                    if (localStorage.getItem('cl_user_id')) {
+                        document.getElementById('login-overlay').style.display = 'none';
+                        startApp();
+                    } else {
+                        document.getElementById('login-overlay').style.display = 'flex';
+                    }
+                }
+            });
+        }
+
+        window.loginWithGoogle = () => {
+            signInWithPopup(auth, provider).catch(err => showToast("فشل تسجيل الدخول: " + err.message, "alert-circle"));
+        };
+
+        window.continueAsGuest = async () => {
+            const newId = 'user_' + Math.random().toString(36).substr(2, 9);
+            const newName = 'مطور_' + Math.floor(Math.random() * 1000);
+            localStorage.setItem('cl_user_id', newId);
+            localStorage.setItem('cl_username', newName);
+            document.getElementById('login-overlay').style.display = 'none';
+            await initUserData(newId, newName, null);
+            startApp();
+        };
+
+        window.logoutUser = () => {
+            signOut(auth).then(() => {
+                localStorage.removeItem('cl_user_id');
+                localStorage.removeItem('cl_username');
+                window.location.reload();
+            });
+        };
+
+        async function initUserData(uid, name, email) {
+            if (!localStorage.getItem('cl_saved_posts')) localStorage.setItem('cl_saved_posts', JSON.stringify([]));
+            const userRef = ref(rdb, `${DB_ROOT}/users/${uid}`);
+            const snap = await get(userRef);
+            if (!snap.exists()) set(userRef, { name: name, email: email || '', wallet: 100, followers: {}, following: {} });
+        }
+
+        function startApp() {
+            updateUIIdentity();
+            buildFilters();
+
+            onValue(ref(rdb, `${DB_ROOT}/users`), (snap) => {
+                usersData = snap.val() || {};
+                updateProfileStats();
+                if(['home', 'saved', 'user-profile'].includes(currentView)) renderViewDependentData();
+            });
+
+            // جلب أحدث 100 بوست فقط لمنع البطء واستهلاك الإنترنت
+            const recentPostsQuery = query(ref(rdb, `${DB_ROOT}/posts`), limitToLast(100));
+            onValue(recentPostsQuery, (snapshot) => {
+                const data = snapshot.val();
+                postsData = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse() : [];
+                document.getElementById('loading').style.display = 'none';
+                if(['home', 'saved', 'user-profile'].includes(currentView)) renderViewDependentData();
+                updateProfileStats();
+            });
+
+            const myId = localStorage.getItem('cl_user_id');
+            onValue(ref(rdb, `${DB_ROOT}/notifications/${myId}`), (snap) => {
+                const data = snap.val();
+                notifications = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse() : [];
+                updateNotificationsUI();
+            });
+
+            onValue(ref(rdb, `${DB_ROOT}/chats`), (snap) => {
+                allChatsData = snap.val() || {};
+                renderInbox();
+                if(currentView === 'private-chat') renderChatMessages();
+            });
+        }
+
+        // --- Core UI Helpers ---
+        function escapeHTML(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function timeAgo(timestamp) {
+            if(!timestamp) return 'الآن';
+            const seconds = Math.floor((new Date() - timestamp) / 1000);
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " سنة";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " شهر";
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + " يوم";
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " ساعة";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " دقيقة";
+            return "الآن";
+        }
+
+        window.showToast = (msg, icon = 'check-circle') => {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 text-blue-500"></i><span id="toast-msg" class="text-xs font-black text-white">${msg}</span>`;
+            lucide.createIcons();
+            t.style.display = 'flex';
+            setTimeout(() => { t.style.display = 'none'; }, 3000);
+        };
+
+        window.pasteFromClipboard = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                const codeInput = document.getElementById('post-code');
+                codeInput.value = text;
+                window.showToast("تم لصق الكود بنجاح!", "clipboard-check");
+            } catch (err) {
+                window.showToast("يرجى إعطاء صلاحية اللصق للمتصفح", "alert-circle");
+            }
+        };
+
+        function updateUIIdentity() {
+            const username = localStorage.getItem('cl_username') || "مطور";
+            document.getElementById('profile-big-avatar').innerText = username[0].toUpperCase();
+            document.getElementById('profile-name-display').innerText = username;
+            document.getElementById('settings-username').value = username;
+        }
+
+        function buildFilters() {
+            const container = document.getElementById('filter-container');
+            container.innerHTML = filters.map(f => `
+                <button onclick="window.setFilter('${f}')" id="filter-${f}" class="category-btn ${f === 'All' ? 'bg-white text-black' : 'bg-white/5 text-gray-400 border border-white/5'} px-5 py-2 rounded-full text-[11px] font-black transition-all">
+                    ${f === 'All' ? 'اكتشف الكل' : f}
+                </button>
+            `).join('');
+        }
+
+        // --- Views Management ---
+        window.switchView = (view) => {
+            currentView = view;
+            window.scrollTo(0, 0);
+
+            // Hide all views
+            ['feed', 'notifications-view', 'inbox-view', 'private-chat-view', 'profile-view', 'user-profile-view'].forEach(v => {
+                document.getElementById(v).style.display = 'none';
+            });
+            document.getElementById('filter-container').style.display = 'none';
+
+            // Reset Navigation states
+            ['home', 'saved', 'inbox', 'profile', 'notifications'].forEach(v => {
+                const bottomNav = document.getElementById(`nav-${v}`);
+                const sideNav = document.getElementById(`side-${v}`);
+                if(bottomNav) bottomNav.classList.remove('active-nav-item');
+                if(sideNav) sideNav.classList.remove('active-side-item');
+            });
+
+            // Activate specific view
+            if(view === 'home' || view === 'saved') {
+                document.getElementById('feed').style.display = 'block';
+                document.getElementById('filter-container').style.display = 'flex';
+                renderFeed();
+                if(view === 'home') {
+                    document.getElementById('nav-home')?.classList.add('active-nav-item');
+                    document.getElementById('side-home')?.classList.add('active-side-item');
+                } else {
+                    document.getElementById('nav-saved')?.classList.add('active-nav-item');
+                    document.getElementById('side-saved')?.classList.add('active-side-item');
+                }
+            } else if (view === 'profile') {
+                document.getElementById('profile-view').style.display = 'block';
+                document.getElementById('nav-profile')?.classList.add('active-nav-item');
+                document.getElementById('side-profile')?.classList.add('active-side-item');
+            } else if (view === 'user-profile') {
+                document.getElementById('user-profile-view').style.display = 'block';
+            } else if (view === 'inbox') {
+                document.getElementById('inbox-view').style.display = 'block';
+                document.getElementById('nav-inbox')?.classList.add('active-nav-item');
+                document.getElementById('side-inbox')?.classList.add('active-side-item');
+                renderInbox();
+            } else if (view === 'private-chat') {
+                document.getElementById('private-chat-view').style.display = 'flex';
+                renderChatMessages();
+            } else if (view === 'notifications') {
+                document.getElementById('notifications-view').style.display = 'block';
+                document.getElementById('side-notifications')?.classList.add('active-side-item');
+                renderNotifications();
+            }
+        };
+
+        function renderViewDependentData() {
+            if(currentView === 'home' || currentView === 'saved') renderFeed();
+            if(currentView === 'user-profile' && currentChatMode) window.openUserProfile(currentChatMode);
+        }
+
+        window.setFilter = (cat) => {
+            currentFilter = cat;
+            document.querySelectorAll('.category-btn').forEach(b => {
+                b.classList.remove('bg-white', 'text-black');
+                b.classList.add('bg-white/5', 'text-gray-400', 'border-white/5');
+            });
+            const activeBtn = document.getElementById(`filter-${cat}`);
+            if(activeBtn) {
+                activeBtn.classList.remove('bg-white/5', 'text-gray-400', 'border-white/5');
+                activeBtn.classList.add('bg-white', 'text-black');
+            }
+            renderFeed();
+        };
+
+        window.handleSearch = () => {
+            currentSearch = document.getElementById('search-input').value.toLowerCase();
+            renderFeed();
+        };
+
+        // --- Social & Interaction Logic ---
+        window.toggleFollow = async (targetId) => {
+            const myId = localStorage.getItem('cl_user_id');
+            if(myId === targetId) return showToast("لا يمكنك متابعة نفسك!", "info");
+
+            const myFollowingRef = ref(rdb, `${DB_ROOT}/users/${myId}/following/${targetId}`);
+            const targetFollowerRef = ref(rdb, `${DB_ROOT}/users/${targetId}/followers/${myId}`);
+            
+            const isFollowing = usersData[myId]?.following?.[targetId];
+            
+            if (isFollowing) {
+                await set(myFollowingRef, null);
+                await set(targetFollowerRef, null);
+                showToast("تم إلغاء المتابعة");
+            } else {
+                await set(myFollowingRef, true);
+                await set(targetFollowerRef, true);
+                sendNotification(targetId, 'follow', 'قام بمتابعتك الآن!', myId);
+                showToast("تمت المتابعة بنجاح! 👤");
+            }
+        };
+
+        window.donateCoins = async (targetId, postId) => {
+            const myId = localStorage.getItem('cl_user_id');
+            if(myId === targetId) return showToast("لا يمكنك دعم نفسك!", "info");
+
+            const myWalletRef = ref(rdb, `${DB_ROOT}/users/${myId}/wallet`);
+            const targetWalletRef = ref(rdb, `${DB_ROOT}/users/${targetId}/wallet`);
+
+            let success = false;
+            await runTransaction(myWalletRef, (wallet) => {
+                if (wallet >= 10) { success = true; return wallet - 10; }
+                return wallet;
+            });
+
+            if (success) {
+                await runTransaction(targetWalletRef, (wallet) => (wallet || 0) + 10);
+                sendNotification(targetId, 'money', 'أرسل لك 10 عملات دعماً لكودك!', postId);
+                showToast("تم إرسال الدعم بنجاح! 💸");
+            } else {
+                showToast("رصيدك غير كافٍ للدعم!", "alert-circle");
+            }
+        };
+
+        async function sendNotification(targetId, type, msg, linkId = null) {
+            const myName = localStorage.getItem('cl_username');
+            const notifRef = push(ref(rdb, `${DB_ROOT}/notifications/${targetId}`));
+            await set(notifRef, { from: myName, type: type, msg: msg, linkId: linkId, timestamp: Date.now(), read: false });
+        }
+
+        // --- User Profile View ---
+        window.openUserProfile = (userId) => {
+            currentChatMode = userId; // To remember who we are viewing
+            if(userId === localStorage.getItem('cl_user_id')) return switchView('profile');
+            
+            const user = usersData[userId] || {};
+            const userName = user.name || 'مطور';
+            
+            document.getElementById('other-profile-name').innerText = userName;
+            document.getElementById('other-profile-avatar').innerText = userName[0].toUpperCase();
+            
+            const userPosts = postsData.filter(p => p.authorId === userId);
+            document.getElementById('other-stat-posts').innerText = userPosts.length;
+            document.getElementById('other-stat-followers').innerText = user.followers ? Object.keys(user.followers).length : 0;
+            document.getElementById('other-stat-following').innerText = user.following ? Object.keys(user.following).length : 0;
+            
+            const myId = localStorage.getItem('cl_user_id');
+            const isFollowing = usersData[myId]?.following?.[userId];
+            const btnFollow = document.getElementById('btn-other-follow');
+            
+            btnFollow.innerText = isFollowing ? 'إلغاء المتابعة' : 'متابعة';
+            btnFollow.className = isFollowing 
+                ? 'px-6 py-2 bg-white/10 text-white font-bold rounded-xl text-sm flex-1 max-w-[120px] transition-colors'
+                : 'px-6 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm flex-1 max-w-[120px] transition-colors';
+                
+            btnFollow.onclick = () => window.toggleFollow(userId);
+            document.getElementById('btn-other-msg').onclick = () => window.openPrivateChat(userId, userName);
+            document.getElementById('btn-other-donate').onclick = () => window.donateCoins(userId, null);
+            
+            const container = document.getElementById('other-profile-posts');
+            if(userPosts.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500 text-sm py-10">لا توجد مشاريع بعد.</p>`;
+            } else {
+                container.innerHTML = generatePostsHTML(userPosts);
+                attachPostBehaviors(userPosts);
+            }
+            
+            switchView('user-profile');
+        };
+
+        // --- Inbox & Private Chat ---
+        function renderInbox() {
+            const container = document.getElementById('inbox-list');
+            if(currentView !== 'inbox') return;
+            
+            const myId = localStorage.getItem('cl_user_id');
+            const myChats = [];
+            
+            Object.keys(allChatsData).forEach(chatKey => {
+                if(chatKey.startsWith('private_') && chatKey.includes(myId)) {
+                    const ids = chatKey.replace('private_', '').split('_');
+                    const otherId = ids[0] === myId ? ids[1] : ids[0];
+                    const msgs = Object.values(allChatsData[chatKey] || {}).sort((a,b) => a.timestamp - b.timestamp);
+                    if(msgs.length > 0) {
+                        const lastMsg = msgs[msgs.length - 1];
+                        myChats.push({ otherId, lastMsg, timestamp: lastMsg.timestamp });
+                    }
+                }
+            });
+
+            myChats.sort((a,b) => b.timestamp - a.timestamp);
+
+            container.innerHTML = myChats.map(c => {
+                const otherUser = usersData[c.otherId] || { name: 'مستخدم غير معروف' };
+                return `
+                    <div onclick="window.openPrivateChat('${c.otherId}', '${otherUser.name}')" class="flex items-center gap-4 p-4 bg-white/5 rounded-2xl cursor-pointer hover:bg-white/10 border border-transparent hover:border-white/10 transition-all">
+                        <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center font-black text-white text-lg">${otherUser.name[0].toUpperCase()}</div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-sm text-white">${otherUser.name}</h4>
+                            <p class="text-[11px] text-gray-400 truncate mt-1">${c.lastMsg.senderId === myId ? 'أنت: ' : ''}${c.lastMsg.text}</p>
+                        </div>
+                        <span class="text-[10px] text-gray-500 whitespace-nowrap mr-2">${timeAgo(c.timestamp)}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            if(myChats.length === 0) container.innerHTML = `<p class="text-center text-gray-500 text-sm mt-10">صندوق الرسائل فارغ.</p>`;
+        }
+
+        window.openPrivateChat = (userId, userName) => {
+            currentChatMode = userId;
+            document.getElementById('private-chat-title').innerText = userName;
+            switchView('private-chat');
+        };
+
+        window.sendMessage = async (audioBase64 = null) => {
+            let txt = '';
+            let msgType = 'text';
+
+            if (audioBase64) {
+                txt = audioBase64;
+                msgType = 'audio';
+            } else {
+                const inp = document.getElementById('chat-input');
+                txt = inp.value.trim();
+                if(!txt || !currentChatMode) return;
+                inp.value = '';
+            }
+
+            const myId = localStorage.getItem('cl_user_id');
+            const ids = [myId, currentChatMode].sort();
+            const chatPath = `${DB_ROOT}/chats/private_${ids[0]}_${ids[1]}`;
+
+            const msgRef = push(ref(rdb, chatPath));
+            await set(msgRef, { senderId: myId, text: txt, type: msgType, timestamp: Date.now() });
+        };
+
+        window.toggleRecordAudio = async () => {
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = async () => {
+                            const base64Audio = reader.result;
+                            await window.sendMessage(base64Audio);
+                        }
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    document.getElementById('mic-icon').classList.add('text-red-500');
+                    document.getElementById('record-pulse').classList.remove('hidden');
+                } catch (e) { 
+                    window.showToast("تعذر الوصول للمايكروفون، تأكد من الصلاحيات", "alert-circle"); 
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                document.getElementById('mic-icon').classList.remove('text-red-500');
+                document.getElementById('record-pulse').classList.add('hidden');
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        };
+
+        function renderChatMessages() {
+            if(currentView !== 'private-chat') return;
+            const myId = localStorage.getItem('cl_user_id');
+            const chatContainer = document.getElementById('chat-messages');
+            
+            const ids = [myId, currentChatMode].sort();
+            const chatPath = `private_${ids[0]}_${ids[1]}`;
+            
+            const messagesObj = allChatsData[chatPath] || {};
+            const msgs = Object.values(messagesObj).sort((a,b) => a.timestamp - b.timestamp);
+            
+            chatContainer.innerHTML = msgs.map(m => {
+                const isMe = m.senderId === myId;
+                const isAudio = m.type === 'audio';
+                return `
+                    <div class="flex flex-col ${isMe ? 'items-start' : 'items-end'}">
+                        ${isAudio 
+                            ? `<audio controls src="${m.text}" class="max-w-[220px] h-10 mt-1 outline-none"></audio>`
+                            : `<div class="px-5 py-2.5 rounded-2xl text-sm max-w-[85%] leading-relaxed ${isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none'}">
+                                ${m.text}
+                               </div>`
+                        }
+                        <span class="text-[9px] text-gray-500 mt-1 mx-1">${timeAgo(m.timestamp)}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('private-chat-avatar').innerText = document.getElementById('private-chat-title').innerText[0].toUpperCase();
+            scrollToChatBottom();
+        }
+
+        function scrollToChatBottom() {
+            const c = document.getElementById('chat-messages');
+            if(c) c.scrollTop = c.scrollHeight;
+        }
+
+        // --- Notifications UI ---
+        function updateNotificationsUI() {
+            const unread = notifications.filter(n => !n.read).length;
+            ['notif-badge', 'side-notif-badge'].forEach(id => {
+                const badge = document.getElementById(id);
+                if(badge) {
+                    if (unread > 0) {
+                        badge.innerText = unread;
+                        badge.style.display = 'block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            });
+            if(currentView === 'notifications') renderNotifications();
+        }
+
+        window.handleNotificationClick = (type, linkId, notifId) => {
+            const myId = localStorage.getItem('cl_user_id');
+            set(ref(rdb, `${DB_ROOT}/notifications/${myId}/${notifId}/read`), true);
+
+            if(type === 'follow' && linkId) {
+                window.openUserProfile(linkId);
+            } else if (linkId) {
+                switchView('home');
+                setTimeout(() => {
+                    const postEl = document.getElementById(`post-card-${linkId}`);
+                    if(postEl) {
+                        postEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        postEl.classList.add('ring-2', 'ring-blue-500', 'transition-all', 'duration-500');
+                        setTimeout(() => postEl.classList.remove('ring-2', 'ring-blue-500'), 2000);
+                    }
+                }, 400);
+            }
+        };
+
+        function renderNotifications() {
+            const container = document.getElementById('notifications-list');
+            const myId = localStorage.getItem('cl_user_id');
+
+            if(notifications.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 text-gray-500 text-sm font-bold">لا توجد إشعارات حالياً</div>`;
+                return;
+            }
+
+            container.innerHTML = notifications.map(n => {
+                let icon = 'bell';
+                if(n.type === 'like') icon = 'heart';
+                if(n.type === 'comment') icon = 'message-circle';
+                if(n.type === 'follow') icon = 'user-plus';
+                if(n.type === 'money') icon = 'coins';
+                if(n.type === 'post') icon = 'code';
+
+                const isUnread = !n.read;
+                
+                return `
+                <div onclick="window.handleNotificationClick('${n.type}', '${n.linkId}', '${n.id}')" class="p-3 bg-white/[0.02] hover:bg-white/5 rounded-2xl flex items-center justify-between cursor-pointer transition-colors border border-transparent ${isUnread ? 'border-blue-500/30 bg-blue-500/5' : ''}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 bg-gradient-to-br from-gray-800 to-black rounded-full flex items-center justify-center font-black text-white shrink-0 shadow-lg relative border border-white/10">
+                            ${n.from[0].toUpperCase()}
+                            ${isUnread ? `<span class="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-[#0a0a0a] rounded-full"></span>` : ''}
+                        </div>
+                        <div>
+                            <p class="text-[13px] text-white font-medium"><strong class="font-black text-blue-400">${n.from}</strong> ${n.msg}</p>
+                            <p class="text-[10px] text-gray-500 mt-0.5 font-bold flex items-center gap-1">
+                                <i data-lucide="${icon}" class="w-3 h-3"></i> ${timeAgo(n.timestamp)}
+                            </p>
+                        </div>
+                    </div>
+                    ${n.type === 'follow' ? `<button class="px-4 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-bold shadow-lg">عرض</button>` : `<div class="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center shrink-0"><i data-lucide="chevron-left" class="w-4 h-4 text-gray-400"></i></div>`}
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+            
+            // Mark as read after 3 seconds of viewing to feel like Instagram
+            setTimeout(() => {
+                if(currentView === 'notifications') {
+                    notifications.forEach(n => {
+                        if(!n.read) set(ref(rdb, `${DB_ROOT}/notifications/${myId}/${n.id}/read`), true);
+                    });
+                }
+            }, 3000);
+        }
+
+        // --- Post Feed Generation ---
+        function generatePostsHTML(filtered) {
+            const myId = localStorage.getItem('cl_user_id');
+            const savedList = JSON.parse(localStorage.getItem('cl_saved_posts') || '[]');
+            
+            return filtered.map(post => {
+                const isLiked = post.likedBy && post.likedBy[myId];
+                const isSaved = savedList.includes(post.id);
+                const comments = post.comments ? Object.entries(post.comments) : [];
+                const tAgo = timeAgo(post.timestamp);
+                
+                const isFollowing = usersData[myId]?.following?.[post.authorId];
+                const followBtnTxt = isFollowing ? 'إلغاء المتابعة' : 'متابعة';
+                const followBtnClass = isFollowing ? 'bg-white/10 text-white' : 'bg-blue-600 text-white';
+
+                return `
+                <div class="bg-card-bg border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl relative mb-8" id="post-card-${post.id}">
+                    <!-- Header -->
+                    <div class="p-5 flex items-center justify-between border-b border-white/5">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-gray-800 to-black rounded-full flex items-center justify-center font-black text-sm text-white border border-white/10 cursor-pointer" onclick="window.openUserProfile('${post.authorId}')">${post.authorName[0].toUpperCase()}</div>
+                            <div>
+                                <h4 class="text-xs font-black text-white flex items-center gap-2 cursor-pointer" onclick="window.openUserProfile('${post.authorId}')">
+                                    ${post.authorName}
+                                    ${post.authorId !== myId ? `<button onclick="event.stopPropagation(); window.toggleFollow('${post.authorId}')" class="text-[9px] px-2 py-0.5 rounded ${followBtnClass} transition-colors">${followBtnTxt}</button>` : ''}
+                                </h4>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-[9px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md uppercase">${post.language || 'Code'}</span>
+                                    <span class="text-[9px] text-gray-500 font-bold">${tAgo}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            ${post.authorId === myId ? `
+                            <button onclick="window.editPost('${post.id}')" title="تعديل" class="p-2 text-gray-500 hover:text-blue-500 hover:bg-white/5 rounded-full transition-colors"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                            <button onclick="window.confirmDelete('${post.id}')" title="حذف" class="p-2 text-gray-500 hover:text-red-500 hover:bg-white/5 rounded-full transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            ` : ''}
+                            ${post.authorId !== myId ? `<button onclick="window.donateCoins('${post.authorId}', '${post.id}')" title="دعم المطور" class="p-2 text-green-500 hover:bg-green-500/10 rounded-full transition-colors"><i data-lucide="coins" class="w-5 h-5"></i></button>` : ''}
+                            <button onclick="window.handleSave('${post.id}')" class="p-2 transition-transform active:scale-90">
+                                <i data-lucide="bookmark" class="w-5 h-5 ${isSaved ? 'saved-icon' : 'text-gray-500'}"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="px-6 py-4">
+                        <h3 class="text-base font-black text-white mb-1">${post.title}</h3>
+                        <p class="text-[11px] text-gray-400 font-medium leading-relaxed">${post.description}</p>
+                    </div>
+
+                    <!-- Media / Code -->
+                    <div class="px-4 pb-2">
+                        <div class="flex gap-1 mb-3 bg-black rounded-xl p-1 w-fit border border-white/10 mx-auto">
+                            <button onclick="window.slideTo('${post.id}', 0)" id="t-${post.id}-0" class="tab-btn active-tab px-6 py-1.5 rounded-lg text-[10px] font-black transition-all">النتيجة</button>
+                            <button onclick="window.slideTo('${post.id}', 1)" id="t-${post.id}-1" class="tab-btn px-6 py-1.5 rounded-lg text-[10px] font-black text-gray-500 transition-all">الكود</button>
+                        </div>
+
+                        <div class="w-full h-[300px] bg-[#050505] rounded-3xl overflow-hidden border border-white/10 relative shadow-inner group">
+                            <i data-lucide="heart" id="dh-${post.id}" class="floating-heart pointer-events-none z-50"></i>
+                            
+                            <div class="swiper swiper-${post.id} h-full" ondblclick="window.handleDoubleLike('${post.id}')">
+                                <div class="swiper-wrapper h-full">
+                                    <div class="swiper-slide bg-white relative h-full">
+                                        <!-- تم تفعيل Lazy Loading هنا باستخدام data-code -->
+                                        <iframe id="frame-${post.id}" data-code="${escapeHTML(post.code)}" class="w-full h-full lazy-iframe"></iframe>
+                                    </div>
+                                    <div class="swiper-slide overflow-auto custom-scrollbar text-left bg-[#282c34] h-full" dir="ltr">
+                                        <pre class="m-0 h-full"><code class="language-${post.language === 'HTML' ? 'xml' : (post.language === 'Python' ? 'python' : (post.language === 'C++' ? 'cpp' : 'javascript'))} text-[12px] p-5 leading-relaxed block min-h-full whitespace-pre-wrap" style="font-family: 'Fira Code', monospace; background: transparent !important; color: #abb2bf;">${escapeHTML(post.code)}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions Footer -->
+                    <div class="px-6 py-4 border-t border-white/5 flex justify-between items-center bg-white/[0.01]">
+                        <div class="flex gap-4">
+                            <button onclick="window.doLike('${post.id}', '${post.authorId}')" class="flex items-center gap-2 group active:scale-90 transition-transform">
+                                <i data-lucide="heart" class="w-5 h-5 ${isLiked ? 'liked-icon' : 'text-gray-500 group-hover:text-red-500'}"></i>
+                                <span class="text-sm font-black ${isLiked ? 'text-white' : 'text-gray-500'}">${post.likes || 0}</span>
+                            </button>
+                            <button class="flex items-center gap-2 group cursor-default">
+                                <i data-lucide="message-circle" class="w-5 h-5 text-gray-500 group-hover:text-blue-500 transition-colors"></i>
+                                <span class="text-sm font-black text-gray-500">${comments.length}</span>
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.downloadCode('${post.id}')" class="flex items-center justify-center w-8 h-8 bg-white/5 rounded-xl hover:bg-white/10 transition-colors active:scale-95 text-gray-400">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="window.copyCode('${post.id}')" class="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl hover:bg-white/10 transition-colors active:scale-95">
+                                <i data-lucide="copy" class="w-4 h-4 text-gray-400"></i>
+                                <span class="text-[10px] font-bold text-gray-400">نسخ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Comments -->
+                    <div class="px-6 pb-6 pt-2 bg-white/[0.01]">
+                        <div class="space-y-3 mb-4 max-h-32 overflow-y-auto custom-scrollbar">
+                            ${comments.length > 0 ? comments.slice(-4).map(([id, c]) => `
+                                <div class="flex items-start gap-2">
+                                    <div class="w-5 h-5 bg-gray-800 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-black">${c.user[0]}</div>
+                                    <div class="bg-white/5 rounded-2xl rounded-tr-none px-3 py-2 text-[10px]">
+                                        <span class="font-black text-blue-400 block mb-0.5">${c.user}</span>
+                                        <span class="text-gray-300 font-medium">${c.text}</span>
+                                    </div>
+                                </div>
+                            `).join('') : ''}
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <div class="w-6 h-6 bg-blue-600 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-black text-white">${localStorage.getItem('cl_username')[0]}</div>
+                            <input type="text" id="comm-input-${post.id}" placeholder="اكتب تعليقاً يثري المشروع..." class="flex-1 bg-white/5 rounded-full px-4 py-2.5 text-[11px] outline-none border border-transparent focus:border-white/10 font-bold transition-colors">
+                            <button onclick="window.postComment('${post.id}', '${post.authorId}')" class="p-2 text-blue-500 hover:text-blue-400 transition-colors active:scale-90">
+                                <i data-lucide="send-horizontal" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function attachPostBehaviors(filtered) {
+            lucide.createIcons();
+            document.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+            filtered.forEach(post => {
+                initSwiperInstance(post.id);
+            });
+            // تشغيل مراقب السكرول للواجهات المخفية
+            document.querySelectorAll('.lazy-iframe').forEach(ifr => lazyObserver.observe(ifr));
+        }
+
+        function renderFeed() {
+            const feed = document.getElementById('feed');
+            const savedList = JSON.parse(localStorage.getItem('cl_saved_posts') || '[]');
+            let filtered = postsData;
+            
+            if (currentView === 'saved') {
+                filtered = filtered.filter(p => savedList.includes(p.id));
+            } else {
+                if (currentFilter !== 'All') filtered = filtered.filter(p => p.language.includes(currentFilter));
+                if (currentSearch.trim() !== '') filtered = filtered.filter(p => p.title.toLowerCase().includes(currentSearch) || p.description.toLowerCase().includes(currentSearch) || p.authorName.toLowerCase().includes(currentSearch));
+            }
+
+            if(filtered.length === 0) {
+                const emptyMsg = currentView === 'saved' ? 'لم تقم بحفظ أي مشروع بعد.' : 'لا توجد نتائج تطابق بحثك.';
+                feed.innerHTML = `<div class="text-center py-20 flex flex-col items-center opacity-50"><i data-lucide="ghost" class="w-12 h-12 mb-4"></i><p class="font-bold text-sm">${emptyMsg}</p></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            feed.innerHTML = generatePostsHTML(filtered);
+            attachPostBehaviors(filtered);
+        }
+
+        // --- Rest of Operations ---
+        window.handleDoubleLike = async (id) => {
+            const heart = document.getElementById(`dh-${id}`);
+            heart.classList.remove('animate-float');
+            void heart.offsetWidth;
+            heart.classList.add('animate-float');
+            
+            const post = postsData.find(p => p.id === id);
+            const myId = localStorage.getItem('cl_user_id');
+            if(!post.likedBy || !post.likedBy[myId]) await window.doLike(id, post.authorId);
+        };
+
+        window.doLike = async (postId, authorId) => {
+            const userId = localStorage.getItem('cl_user_id');
+            const postRef = ref(rdb, `${DB_ROOT}/posts/${postId}`);
+            
+            await runTransaction(postRef, (post) => {
+                if (post) {
+                    if (!post.likedBy) post.likedBy = {};
+                    if (post.likedBy[userId]) {
+                        post.likes = (post.likes || 1) - 1;
+                        post.likedBy[userId] = null;
+                    } else {
+                        post.likes = (post.likes || 0) + 1;
+                        post.likedBy[userId] = true;
+                    }
+                }
+                return post;
+            });
+
+            const updatedPost = postsData.find(p => p.id === postId);
+            if(updatedPost && !updatedPost.likedBy?.[userId] && authorId !== userId) sendNotification(authorId, 'like', 'أعجب بمشروعك الجديد!', postId);
+        };
+
+        window.postComment = async (postId, authorId) => {
+            const inp = document.getElementById(`comm-input-${postId}`);
+            const text = inp.value.trim();
+            if(!text) return;
+
+            const commentRef = push(ref(rdb, `${DB_ROOT}/posts/${postId}/comments`));
+            await set(commentRef, { text, user: localStorage.getItem('cl_username'), timestamp: Date.now() });
+
+            inp.value = '';
+            if(authorId !== localStorage.getItem('cl_user_id')) sendNotification(authorId, 'comment', 'علق على مشروعك!', postId);
+            showToast("تم نشر تعليقك! 💬");
+        };
+
+        window.handleSave = (postId) => {
+            let saved = JSON.parse(localStorage.getItem('cl_saved_posts') || '[]');
+            const isSaved = saved.includes(postId);
+            if (isSaved) saved = saved.filter(id => id !== postId);
+            else saved.push(postId);
+            
+            localStorage.setItem('cl_saved_posts', JSON.stringify(saved));
+            renderFeed();
+            updateProfileStats();
+            showToast(!isSaved ? "تم حفظ المشروع في مكتبتك 🔖" : "تم إزالة المشروع من المحفوظات");
+        };
+
+        window.copyCode = (id) => {
+            navigator.clipboard.writeText(postsData.find(x => x.id === id).code);
+            showToast("تم نسخ الكود للحافظة! 💻");
+        };
+        
+        window.downloadCode = (id) => {
+            const post = postsData.find(x => x.id === id);
+            const blob = new Blob([post.code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CodeLoop_${post.title}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("تم تنزيل الكود بنجاح! ⬇️");
+        };
+
+        function updateProfileStats() {
+            const myId = localStorage.getItem('cl_user_id');
+            const myPosts = postsData.filter(p => p.authorId === myId).length;
+            const mySaves = JSON.parse(localStorage.getItem('cl_saved_posts') || '[]').length;
+            const myData = usersData[myId] || {};
+            
+            document.getElementById('stat-posts').innerText = myPosts;
+            document.getElementById('stat-saved').innerText = mySaves;
+            document.getElementById('stat-followers').innerText = myData.followers ? Object.keys(myData.followers).length : 0;
+            document.getElementById('wallet-balance').innerText = myData.wallet || 0;
+        }
+
+        window.saveSettings = () => {
+            const newName = document.getElementById('settings-username').value.trim();
+            if(newName) {
+                localStorage.setItem('cl_username', newName);
+                set(ref(rdb, `${DB_ROOT}/users/${localStorage.getItem('cl_user_id')}/name`), newName);
+                updateUIIdentity();
+                showToast("تم تحديث بروفايلك بنجاح! 👤");
+            }
+        };
+
+        window.toggleModal = (s) => document.getElementById('post-modal').style.display = s ? 'flex' : 'none';
+
+        window.openPostModal = () => {
+            editingPostId = null;
+            document.getElementById('post-form').reset();
+            document.getElementById('modal-title').innerHTML = '<i data-lucide="terminal-square" class="text-blue-500"></i> نشر مشروع جديد';
+            document.getElementById('btn-submit-post').innerText = "نشر الآن";
+            window.toggleModal(true);
+            lucide.createIcons();
+        };
+
+        window.editPost = (id) => {
+            const post = postsData.find(p => p.id === id);
+            if(!post) return;
+            editingPostId = id;
+            document.getElementById('post-title').value = post.title;
+            document.getElementById('post-lang').value = post.language;
+            document.getElementById('post-type').value = post.type;
+            document.getElementById('post-desc').value = post.description;
+            document.getElementById('post-code').value = post.code;
+            document.getElementById('modal-title').innerHTML = '<i data-lucide="edit-3" class="text-blue-500"></i> تعديل المشروع';
+            document.getElementById('btn-submit-post').innerText = "حفظ التعديلات";
+            window.toggleModal(true);
+            lucide.createIcons();
+        };
+
+        window.confirmDelete = (id) => {
+            document.getElementById('confirm-modal').style.display = 'flex';
+            document.getElementById('btn-confirm-delete').onclick = () => window.deletePost(id);
+        };
+
+        window.deletePost = async (id) => {
+            await set(ref(rdb, `${DB_ROOT}/posts/${id}`), null);
+            document.getElementById('confirm-modal').style.display = 'none';
+            window.showToast("تم حذف المشروع بنجاح", "trash");
+        };
+
+        document.getElementById('post-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-post');
+            btn.disabled = true; btn.innerText = "جاري الحفظ...";
+            
+            const postDataObj = {
+                title: document.getElementById('post-title').value,
+                language: document.getElementById('post-lang').value,
+                type: document.getElementById('post-type').value,
+                description: document.getElementById('post-desc').value,
+                code: document.getElementById('post-code').value,
+            };
+
+            if (editingPostId) {
+                await update(ref(rdb, `${DB_ROOT}/posts/${editingPostId}`), postDataObj);
+                window.showToast("تم تعديل المشروع بنجاح! ✏️", "check-circle");
+            } else {
+                const newPostRef = push(ref(rdb, `${DB_ROOT}/posts`));
+                await set(newPostRef, {
+                    ...postDataObj,
+                    authorName: localStorage.getItem('cl_username'),
+                    authorId: localStorage.getItem('cl_user_id'),
+                    likes: 0, likedBy: {}, comments: {},
+                    timestamp: Date.now(), createdAt: serverTimestamp()
+                });
+                window.showToast("تم إطلاق مشروعك بنجاح! 🚀", "check-circle");
+                const followers = usersData[localStorage.getItem('cl_user_id')]?.followers || {};
+                Object.keys(followers).forEach(id => sendNotification(id, 'post', `نشر مشروعاً جديداً للتو!`, newPostRef.key));
+            }
+            
+            window.toggleModal(false); 
+            e.target.reset();
+            btn.disabled = false; 
+            btn.innerText = "نشر الآن";
+            switchView('home');
+        };
+
+        function initSwiperInstance(id) {
+            swipers[id] = new Swiper(`.swiper-${id}`, {
+                speed: 400, 
+                grabCursor: true,
+                touchStartPreventDefault: false,
+                on: {
+                    slideChange: function() {
+                        const btns = document.getElementById(`t-${id}-0`)?.parentElement;
+                        if(btns) {
+                            btns.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active-tab'); b.classList.add('text-gray-500'); });
+                            const active = document.getElementById(`t-${id}-${this.activeIndex}`);
+                            if(active) { active.classList.add('active-tab'); active.classList.remove('text-gray-500'); }
+                        }
+                    }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
