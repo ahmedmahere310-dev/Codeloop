@@ -589,6 +589,8 @@
         
         let terminalHistory = [];
         let terminalHistoryIndex = -1;
+        let autoSaveTimer = null;
+        let livePreviewUrl = "";
         
         let currentSettings = JSON.parse(localStorage.getItem('bs_settings')) || { 
             theme: "ace/theme/tomorrow_night_eighties", 
@@ -655,12 +657,14 @@
                 const index = files.findIndex(f => f.id === activeFileId);
                 files[index].content = val;
                 localStorage.setItem('bs_ace_files', JSON.stringify(files));
+                queueAutoSave();
             });
 
             aceEditor.commands.addCommand({ name: 'saveCmd', bindKey: {win: 'Ctrl-S', mac: 'Command-S'}, exec: () => { if(currentSettings.autoFormat) formatCode(false); showToast('تم الحفظ 🚀'); runPreview(); } });
             aceEditor.commands.addCommand({ name: 'previewCmd', bindKey: {win: 'Ctrl-Enter', mac: 'Command-Enter'}, exec: () => runPreview() });
             aceEditor.commands.addCommand({ name: 'paletteCmd', bindKey: {win: 'Ctrl-P', mac: 'Command-P'}, exec: () => toggleCommandPalette() });
             aceEditor.commands.addCommand({ name: 'findCmd', bindKey: {win: 'Ctrl-F', mac: 'Command-F'}, exec: () => toggleFindReplace() });
+            aceEditor.commands.addCommand({ name: 'liveUrlCmd', bindKey: {win: 'Ctrl-L', mac: 'Command-L'}, exec: () => promptLiveUrlPreview() });
 
             setTimeout(() => aceEditor.resize(), 100);
             initAdvancedStylusSupport();
@@ -696,6 +700,31 @@
             document.addEventListener('touchmove', resize, {passive: true});
             document.addEventListener('mouseup', stopResize); 
             document.addEventListener('touchend', stopResize);
+        }
+
+
+        function queueAutoSave() {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                localStorage.setItem('bs_ace_files', JSON.stringify(files));
+                showToast('💾 تم الحفظ التلقائي');
+            }, 3000);
+        }
+
+        function promptLiveUrlPreview() {
+            const rawUrl = prompt('ألصق رابط الموقع للمعاينة المباشرة:');
+            if (!rawUrl) return;
+            try {
+                const validated = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+                livePreviewUrl = validated.href;
+                const frame = document.getElementById('preview-frame');
+                frame.src = livePreviewUrl;
+                document.getElementById('preview-modal').classList.remove('hidden');
+                if (!isSplitView) toggleSplitView();
+                showToast('🔗 Live URL Preview');
+            } catch {
+                showToast('❌ الرابط غير صالح');
+            }
         }
 
         function toggleFindReplace() {
@@ -1242,6 +1271,18 @@
                 div.className = 'mb-1 pb-1 border-b border-white/5 ';
                 if(e.data.level === 'error') { div.className += 'text-red-400'; } else if(e.data.level === 'warn') { div.className += 'text-yellow-400'; } else { div.className += 'text-green-300'; }
                 div.innerHTML = `<span class="opacity-50 select-none mr-2">›</span> ${e.data.message}`; out.appendChild(div); out.scrollTop = out.scrollHeight; 
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('find-replace-widget').style.display = 'none';
+                document.getElementById('command-palette').classList.add('hidden');
+                document.getElementById('command-palette').classList.remove('flex');
+                const fk = document.getElementById('floating-keyboard');
+                fk.classList.add('hidden');
+                fk.classList.remove('flex');
+                aceEditor?.focus();
             }
         });
 
