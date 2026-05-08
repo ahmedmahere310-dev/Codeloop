@@ -1865,12 +1865,25 @@
         window.openPostModal = () => { window.openEditorPage(); };
 
         window.editPost = (id) => {
-            const post = postsData.find(p => p.id === id); if(!post) return;
-            localStorage.setItem('cl_editor_edit_id', id);
-            localStorage.setItem('cl_post_draft', JSON.stringify({ title: post.title, lang: post.language, desc: post.description, code: post.code, visibility: post.visibility || 'public' }));
-            window.location.href = 'ed.html';
-        };
+    const post = postsData.find(p => p.id === id);
+    if(!post) return;
+    // حفظ ID المشروع في localStorage
+    localStorage.setItem('cl_editor_edit_id', id);
+    localStorage.setItem('cl_edit_is_fork', 'false');
+    localStorage.setItem('cl_edit_original_author', post.authorName);
+    window.location.href = 'ed.html';
+};
 
+// تعديل دالة forkPost
+window.forkPost = (id) => {
+    const post = postsData.find(p => p.id === id);
+    if(!post) return;
+    // حفظ ID المشروع كـ fork
+    localStorage.setItem('cl_editor_edit_id', id);
+    localStorage.setItem('cl_edit_is_fork', 'true');
+    localStorage.setItem('cl_edit_original_author', post.authorName);
+    window.location.href = 'ed.html';
+}; 
         window.confirmDelete = (id) => { document.getElementById('confirm-modal').style.display = 'flex'; document.getElementById('btn-confirm-delete').onclick = () => window.deletePost(id); };
         window.deletePost = async (id) => { await set(ref(rdb, `${DB_ROOT}/posts/${id}`), null); document.getElementById('confirm-modal').style.display = 'none'; window.showToast("تم الحذف", "trash"); };
 
