@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CodeLoop - محرر الأكواد</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.js"></script>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; }
+        #editor { height: calc(100vh - 60px); width: 100%; }
+        .glass { background: rgba(20,20,20,0.9); backdrop-filter: blur(10px); }
+        button:active { transform: scale(0.97); }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; padding: 8px 20px; border-radius: 30px; font-size: 13px; z-index: 9999; opacity: 0; transition: 0.2s; pointer-events: none; }
+        .toast.show { opacity: 1; bottom: 30px; }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-4 py-3 bg-[#0a0a0a] border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-gradient-to-tr from-blue-700 to-indigo-500 rounded-lg flex items-center justify-center">
+                <i data-lucide="code" class="w-4 h-4 text-white"></i>
+            </div>
+            <span class="font-bold text-sm">محرر CodeLoop</span>
+            <span id="edit-mode-badge" class="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full hidden">✏️ وضع التعديل</span>
+            <span id="fork-badge" class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full hidden">🍴 Fork Mode</span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="saveAndPublish()" id="publish-btn" class="px-4 py-1.5 bg-green-600 rounded-lg text-xs font-bold">💾 نشر التعديلات</button>
+            <button onclick="runPreview()" class="px-4 py-1.5 bg-blue-600 rounded-lg text-xs font-bold">▶ تشغيل</button>
+            <button onclick="goBack()" class="px-4 py-1.5 bg-white/10 rounded-lg text-xs font-bold">↩ رجوع</button>
+        </div>
+    </div>
+
+    <!-- Main Area -->
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar Files -->
+        <div class="w-48 bg-[#050505] border-l border-white/10 p-2 overflow-y-auto">
+            <button onclick="newFile()" class="w-full mb-2 px-3 py-1.5 bg-white/5 rounded-lg text-xs flex items-center gap-2">
+                <i data-lucide="plus" class="w-3 h-3"></i> ملف جديد
+            </button>
+            <div id="file-list" class="space-y-1"></div>
+        </div>
+
+        <!-- Editor -->
+        <div class="flex-1 flex flex-col">
+            <div id="tabs" class="flex gap-1 px-2 overflow-x-auto bg-[#0a0a0a] border-b border-white/10 h-8"></div>
+            <div id="editor" class="flex-1"></div>
+        </div>
+
+        <!-- Preview Panel -->
+        <div id="preview-panel" class="w-1/2 bg-white hidden flex-col border-r border-white/10">
+            <div class="px-3 py-2 bg-[#0a0a0a] border-b border-white/10 flex justify-between">
+                <span class="text-xs font-bold">المعاينة</span>
+                <button onclick="togglePreview()" class="text-gray-400">✕</button>
+            </div>
+            <iframe id="preview-frame" class="flex-1 bg-white"></iframe>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+<script>
+// ==================== STATE ====================
+let files = [
+    { id: '1', name: 'index.html', content: `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>CodeLoop</title><script src="https://cdn.tailwindcss.com"><\/script></head>
+<body class="bg-black text-white p-8"><h1 class="text-3xl font-bold text-blue-500">مرحباً بك!</h1><p>حرر الكود وشاهد النتيجة</p></body>
+</html>` },
+    { id: '2', name: 'style.css', content: 'body { margin: 0; padding: 20px; }' },
+    { id: '3', name: 'script.js', content: 'console.log("Hello CodeLoop!");' }
+];
+
+let activeFileId = '1';
+let openTabs = ['1', '2', '3'];
+let editor = null;
+
+// ==================== EDIT MODE STATE ====================
+let editMode = false;        // هل نحن في وضع تعديل مشروع موجود؟
+let editPostId = null;       // ID المشروع الأصلي
+let originalAuthorId = null; // صاحب المشروع الأصلي
+let originalAuthorName = null;
+let originalTitle = null;
+let originalDesc = null;
+let originalLang = null;
+let originalVisibility = null;
+let isForkMode = false;      // هل هذا fork وليس تعديل مباشر؟
+
+// ==================== LOAD EDIT DATA FROM URL ====================
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        postId: params.get('edit'),
+        forkId: params.get('fork'),
+        mode: params.get('mode')
+    };
+}
+
+async function loadPostForEdit(postId, isFork = false) {
+    showToast('جاري تحميل المشروع...');
+    
+    // استيراد Firebase
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+    const { getDatabase, ref, get } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGnyVjU_sfU3KfVHW-wyBzE5ufJHFXL8s",
+        authDomain: "es-store-409a3.firebaseapp.com",
+        databaseURL: "https://es-store-409a3-default-rtdb.firebaseio.com",
+        projectId: "es-store-409a3",
+        storageBucket: "es-store-409a3.firebasestorage.app",
+        messagingSenderId: "175100432019",
+        appId: "1:175100432019:web:42754dcbeca82c638c4766"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const rdb = getDatabase(app);
+    const DB_ROOT = "codeloop_pro_v3";
+    
+    const postRef = ref(rdb, `${DB_ROOT}/posts/${postId}`);
+    const snapshot = await get(postRef);
+    const post = snapshot.val();
+    
+    if (!post) {
+        showToast('المشروع غير موجود!');
+        setTimeout(() => window.location.href = 'index.html', 1500);
+        return;
+    }
+    
+    editPostId = postId;
+    originalAuthorId = post.authorId;
+    originalAuthorName = post.authorName;
+    originalTitle = post.title;
+    originalDesc = post.description;
+    originalLang = post.language;
+    originalVisibility = post.visibility;
+    
+    if (isFork) {
+        isForkMode = true;
+        editMode = true;
+        document.getElementById('fork-badge').classList.remove('hidden');
+        document.getElementById('edit-mode-badge').classList.add('hidden');
+        document.getElementById('publish-btn').innerHTML = '🍴 نشر الـ Fork';
+        showToast(`نسخة من مشروع @${originalAuthorName} - يمكنك التعديل ثم النشر`);
+        
+        // تعديل العنوان لإظهار أنه Fork
+        const newTitle = `نسخة من: ${originalTitle}`;
+        document.title = `Fork: ${originalTitle}`;
+        
+        // تحديث ملف HTML ليعرض الـ Fork info
+        let mainFile = files.find(f => f.name === 'index.html');
+        if (mainFile) {
+            let content = mainFile.content;
+            const forkNote = `<!-- Forked from @${originalAuthorName} - ${new Date().toLocaleString()} -->\n`;
+            if (!content.includes('Forked from')) {
+                mainFile.content = forkNote + content;
+                if (activeFileId === mainFile.id && editor) {
+                    editor.setValue(mainFile.content, -1);
+                }
+            }
+        }
+    } else {
+        editMode = true;
+        isForkMode = false;
+        document.getElementById('edit-mode-badge').classList.remove('hidden');
+        document.getElementById('fork-badge').classList.add('hidden');
+        document.getElementById('publish-btn').innerHTML = '✏️ نشر التعديلات';
+        showToast(`تعديل المشروع: ${originalTitle}`);
+    }
+    
+    // تحميل الكود إلى المحرر
+    const code = post.code || '';
+    let mainFile = files.find(f => f.name === 'index.html');
+    if (mainFile) {
+        mainFile.content = code;
+        if (activeFileId === mainFile.id && editor) {
+            editor.setValue(code, -1);
+        }
+    }
+    
+    // تحديث البيانات في localStorage
+    localStorage.setItem('cl_editor_files', JSON.stringify(files));
+    localStorage.setItem('cl_edit_post_id', postId);
+    localStorage.setItem('cl_edit_is_fork', isFork ? 'true' : 'false');
+    localStorage.setItem('cl_edit_original_author', originalAuthorName);
+}
+
+// ==================== SAVE AND PUBLISH (UPDATE EXISTING POST) ====================
+async function saveAndPublish() {
+    if (!editMode) {
+        // إذا لم يكن في وضع التعديل، ننشر كمشروع جديد
+        await publishAsNew();
+        return;
+    }
+    
+    const code = editor.getValue();
+    const title = originalTitle; // نحتفظ بالعنوان الأصلي
+    const desc = document.getElementById('pub-desc')?.value || originalDesc;
+    const lang = document.getElementById('pub-lang')?.value || originalLang;
+    const visibility = document.getElementById('pub-visibility')?.value || originalVisibility;
+    const userId = localStorage.getItem('cl_user_id') || 'guest';
+    const userName = localStorage.getItem('cl_username') || 'مطور';
+    
+    if (!code) {
+        showToast('لا يوجد كود للحفظ!');
+        return;
+    }
+    
+    showToast('جاري حفظ التعديلات...');
+    
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+    const { getDatabase, ref, update, push, set, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGnyVjU_sfU3KfVHW-wyBzE5ufJHFXL8s",
+        authDomain: "es-store-409a3.firebaseapp.com",
+        databaseURL: "https://es-store-409a3-default-rtdb.firebaseio.com",
+        projectId: "es-store-409a3",
+        storageBucket: "es-store-409a3.firebasestorage.app",
+        messagingSenderId: "175100432019",
+        appId: "1:175100432019:web:42754dcbeca82c638c4766"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const rdb = getDatabase(app);
+    const DB_ROOT = "codeloop_pro_v3";
+    
+    if (isForkMode) {
+        // ========== FORK MODE: إنشاء مشروع جديد مع إشارة للمصدر ==========
+        const newPostRef = push(ref(rdb, `${DB_ROOT}/posts`));
+        const forkedTitle = `نسخة من: ${originalTitle}`;
+        const forkedDesc = `🍴 مشروع مبني على كود @${originalAuthorName}\n\n${desc || ''}`;
+        
+        await set(newPostRef, {
+            title: forkedTitle,
+            description: forkedDesc,
+            code: code,
+            language: lang,
+            visibility: visibility,
+            authorName: userName,
+            authorId: userId,
+            likes: 0,
+            likedBy: {},
+            comments: {},
+            views: 0,
+            timestamp: Date.now(),
+            createdAt: serverTimestamp(),
+            forkedFrom: editPostId,
+            originalAuthor: originalAuthorName
+        });
+        
+        // ========== إرسال إشعار للمالك الأصلي ==========
+        const notifRef = ref(rdb, `${DB_ROOT}/notifications/${originalAuthorId}`);
+        await push(notifRef, {
+            from: userName,
+            type: 'fork',
+            msg: `قام بنسخ وتعديل مشروعك "${originalTitle}"`,
+            linkId: newPostRef.key,
+            timestamp: Date.now(),
+            read: false
+        });
+        
+        showToast(`✅ تم نشر الـ Fork بنجاح!`);
+        
+    } else {
+        // ========== EDIT MODE: تحديث المشروع الأصلي ==========
+        await update(ref(rdb, `${DB_ROOT}/posts/${editPostId}`), {
+            code: code,
+            description: desc,
+            language: lang,
+            visibility: visibility,
+            lastEdited: Date.now(),
+            lastEditor: userName,
+            editCount: (await get(ref(rdb, `${DB_ROOT}/posts/${editPostId}/editCount`))).val() + 1 || 1
+        });
+        
+        showToast(`✅ تم تحديث المشروع بنجاح!`);
+    }
+    
+    // تنظيف الـ localStorage
+    localStorage.removeItem('cl_edit_post_id');
+    localStorage.removeItem('cl_edit_is_fork');
+    localStorage.removeItem('cl_editor_edit_id');
+    
+    // العودة للصفحة الرئيسية بعد ثانيتين
+    setTimeout(() => {
+        window.location.href = 'index.html';
+    }, 1500);
+}
+
+// ========== نشر كمشروع جديد (بدون تعديل) ==========
+async function publishAsNew() {
+    const code = editor.getValue();
+    const title = prompt('عنوان المشروع:', 'مشروعي الجديد');
+    if (!title) return;
+    const desc = prompt('وصف المشروع:', '');
+    const lang = 'HTML';
+    const visibility = 'public';
+    const userId = localStorage.getItem('cl_user_id') || 'guest';
+    const userName = localStorage.getItem('cl_username') || 'مطور';
+    
+    if (!code) {
+        showToast('لا يوجد كود للنشر!');
+        return;
+    }
+    
+    showToast('جاري النشر...');
+    
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+    const { getDatabase, ref, push, set, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGnyVjU_sfU3KfVHW-wyBzE5ufJHFXL8s",
+        authDomain: "es-store-409a3.firebaseapp.com",
+        databaseURL: "https://es-store-409a3-default-rtdb.firebaseio.com",
+        projectId: "es-store-409a3",
+        storageBucket: "es-store-409a3.firebasestorage.app",
+        messagingSenderId: "175100432019",
+        appId: "1:175100432019:web:42754dcbeca82c638c4766"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const rdb = getDatabase(app);
+    const DB_ROOT = "codeloop_pro_v3";
+    
+    const newPostRef = push(ref(rdb, `${DB_ROOT}/posts`));
+    await set(newPostRef, {
+        title: title,
+        description: desc,
+        code: code,
+        language: lang,
+        visibility: visibility,
+        authorName: userName,
+        authorId: userId,
+        likes: 0,
+        likedBy: {},
+        comments: {},
+        views: 0,
+        timestamp: Date.now(),
+        createdAt: serverTimestamp()
+    });
+    
+    showToast(`✅ تم نشر المشروع "${title}" بنجاح!`);
+    setTimeout(() => {
+        window.location.href = 'index.html';
+    }, 1500);
+}
+
+// ==================== EDITOR FUNCTIONS ====================
+function initEditor() {
+    editor = ace.edit("editor");
+    editor.setTheme("ace/theme/tomorrow_night_eighties");
+    editor.session.setMode("ace/mode/html");
+    editor.setOptions({ fontSize: "14px", wrap: true });
+    editor.session.on('change', () => {
+        const file = files.find(f => f.id === activeFileId);
+        if (file) file.content = editor.getValue();
+        localStorage.setItem('cl_editor_files', JSON.stringify(files));
+    });
+    loadFile();
+    renderFiles();
+    renderTabs();
+}
+
+function loadFile() {
+    const file = files.find(f => f.id === activeFileId);
+    if (!file) return;
+    editor.setValue(file.content, -1);
+    let mode = "ace/mode/text";
+    if (file.name.endsWith('.html')) mode = "ace/mode/html";
+    else if (file.name.endsWith('.css')) mode = "ace/mode/css";
+    else if (file.name.endsWith('.js')) mode = "ace/mode/javascript";
+    editor.session.setMode(mode);
+}
+
+function renderFiles() {
+    const container = document.getElementById('file-list');
+    container.innerHTML = files.map(file => `
+        <div onclick="switchFile('${file.id}')" class="px-3 py-2 rounded-lg text-xs cursor-pointer ${file.id === activeFileId ? 'bg-blue-600/20' : 'hover:bg-white/5'}">
+            <i data-lucide="file-code" class="w-3 h-3 inline ml-1"></i> ${file.name}
+        </div>
+    `).join('');
+    lucide.createIcons();
+}
+
+function renderTabs() {
+    const container = document.getElementById('tabs');
+    container.innerHTML = openTabs.map(id => {
+        const file = files.find(f => f.id === id);
+        if (!file) return '';
+        return `
+            <div onclick="switchFile('${id}')" class="px-3 py-1 text-xs rounded-t-lg cursor-pointer ${id === activeFileId ? 'bg-[#1a1a1a] text-white' : 'bg-transparent text-gray-400'}">
+                ${file.name} <span onclick="event.stopPropagation(); closeTab('${id}')" class="ml-1 text-gray-500 hover:text-red-400">✕</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function switchFile(id) {
+    activeFileId = id;
+    if (!openTabs.includes(id)) openTabs.push(id);
+    loadFile();
+    renderFiles();
+    renderTabs();
+}
+
+function closeTab(id) {
+    openTabs = openTabs.filter(t => t !== id);
+    if (activeFileId === id && openTabs.length > 0) switchFile(openTabs[0]);
+    else if (openTabs.length === 0) {
+        const newId = Date.now().toString();
+        files.push({ id: newId, name: 'newfile.html', content: '' });
+        openTabs = [newId];
+        switchFile(newId);
+    }
+    renderTabs();
+}
+
+function newFile() {
+    const name = prompt('اسم الملف:', 'newfile.html');
+    if (!name) return;
+    const newId = Date.now().toString();
+    files.push({ id: newId, name: name, content: '' });
+    openTabs.push(newId);
+    switchFile(newId);
+    localStorage.setItem('cl_editor_files', JSON.stringify(files));
+}
+
+function runPreview() {
+    const file = files.find(f => f.id === activeFileId);
+    if (!file) return;
+    let html = file.content;
+    files.forEach(f => {
+        if (f.id !== activeFileId) {
+            if (f.name.endsWith('.css')) {
+                html = html.replace(`<link rel="stylesheet" href="${f.name}">`, `<style>${f.content}</style>`);
+            } else if (f.name.endsWith('.js')) {
+                html = html.replace(`<script src="${f.name}"><\/script>`, `<script>${f.content}<\/script>`);
+            }
+        }
+    });
+    const frame = document.getElementById('preview-frame');
+    frame.srcdoc = html;
+    document.getElementById('preview-panel').classList.remove('hidden');
+    document.getElementById('preview-panel').classList.add('flex');
+}
+
+function togglePreview() {
+    const panel = document.getElementById('preview-panel');
+    panel.classList.add('hidden');
+    panel.classList.remove('flex');
+}
+
+function goBack() {
+    window.location.href = 'index.html';
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ==================== CHECK FOR EDIT/FORK MODE ON START ====================
+async function checkEditMode() {
+    const params = getUrlParams();
+    
+    // التحقق من localStorage أولاً (للتعديل القادم من index.html)
+    const savedEditId = localStorage.getItem('cl_editor_edit_id');
+    const savedIsFork = localStorage.getItem('cl_edit_is_fork') === 'true';
+    
+    if (savedEditId) {
+        await loadPostForEdit(savedEditId, savedIsFork);
+        localStorage.removeItem('cl_editor_edit_id');
+        localStorage.removeItem('cl_edit_is_fork');
+    }
+    // التحقق من URL parameters
+    else if (params.editId) {
+        await loadPostForEdit(params.editId, false);
+    }
+    else if (params.forkId) {
+        await loadPostForEdit(params.forkId, true);
+    }
+    else {
+        // وضع إنشاء مشروع جديد
+        editMode = false;
+        document.getElementById('publish-btn').innerHTML = '✨ نشر جديد';
+        showToast('وضع إنشاء مشروع جديد - اكتب كودك ثم انشر');
+    }
+    
+    // تحديث واجهة选择的 اللغة والرؤية
+    if (editMode) {
+        // إضافة عناصر تحكم إضافية إذا كانت موجودة
+        const header = document.querySelector('.flex.items-center.justify-between.px-4.py-3');
+        if (header && !document.getElementById('pub-desc')) {
+            // إضافة حقول إضافية في حالة التعديل
+            const modalHtml = `
+                <div id="edit-controls" class="hidden fixed bottom-20 right-4 z-50 glass rounded-xl p-3 w-64">
+                    <select id="pub-lang" class="w-full bg-black rounded-lg p-2 mb-2 text-xs border border-white/10">
+                        <option value="HTML">HTML/CSS</option>
+                        <option value="JavaScript">JavaScript</option>
+                        <option value="Python">Python</option>
+                    </select>
+                    <select id="pub-visibility" class="w-full bg-black rounded-lg p-2 mb-2 text-xs border border-white/10">
+                        <option value="public">🌐 عام</option>
+                        <option value="followers">👥 المتابعين</option>
+                        <option value="private">🔒 خاص</option>
+                    </select>
+                    <textarea id="pub-desc" placeholder="وصف المشروع..." class="w-full bg-black rounded-lg p-2 text-xs border border-white/10 h-20 resize-none"></textarea>
+                </div>
+            `;
+            if (!document.getElementById('edit-controls')) {
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+            }
+        }
+    }
+}
+
+// ==================== INIT ====================
+// استعادة الملفات المحفوظة
+const saved = localStorage.getItem('cl_editor_files');
+if (saved) {
+    try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.length) {
+            files = parsed;
+            openTabs = files.map(f => f.id);
+            activeFileId = files[0]?.id || '1';
+        }
+    } catch(e) {}
+}
+
+initEditor();
+checkEditMode();
+lucide.createIcons();
+
+// حفظ الملفات عند الخروج
+window.addEventListener('beforeunload', () => {
+    localStorage.setItem('cl_editor_files', JSON.stringify(files));
+});
+</script>
+</body>
+</html>
